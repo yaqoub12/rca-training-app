@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Hazards Catalog - RCA Risk Assessment{% endblock %}
+
+{% block content %}
+<div class="container-fluid catalog-page">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 class="h3 mb-1">
+            <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+            Hazards Catalog
+          </h1>
+          <p class="text-muted mb-0">Manage hazards database with inline editing</p>
+        </div>
+        <button class="btn btn-success" id="addHazardBtn">
+          <i class="bi bi-plus-circle me-1"></i>Add New Hazard
+        </button>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="hazardSearch" class="form-label">Search Hazards</label>
+              <input type="text" class="form-control" id="hazardSearch" placeholder="Search by name or description...">
+            </div>
+            <div class="col-md-3">
+              <label for="categoryFilter" class="form-label">Filter by Category</label>
+              <select class="form-select" id="categoryFilter">
+                <option value="">All Categories</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label for="riskFilter" class="form-label">Filter by Default Risk</label>
+              <select class="form-select" id="riskFilter">
+                <option value="">All Risk Levels</option>
+                <option value="1-5">Low (1-5)</option>
+                <option value="6-10">Medium (6-10)</option>
+                <option value="11-15">High (11-15)</option>
+                <option value="16-25">Critical (16-25)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hazards Table -->
+      <div class="card">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" id="hazardsTable">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 30px;"></th>
+                  <th>Hazard Name</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th style="width: 100px;">Default Risk</th>
+                  <th style="width: 80px;">Parameter</th>
+                  <th style="width: 100px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="hazardsTableBody">
+                <tr class="placeholder-row">
+                  <td colspan="7" class="text-center py-5 text-muted">
+                    <i class="bi bi-hourglass-split fs-1 d-block mb-2"></i>
+                    Loading hazards...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Hazard Modal -->
+<div class="modal fade" id="hazardModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="hazardModalTitle">Add New Hazard</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="hazardForm">
+          <input type="hidden" id="hazardId">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label for="hazardName" class="form-label">Hazard Name *</label>
+              <input type="text" class="form-control" id="hazardName" required>
+            </div>
+            <div class="col-md-4">
+              <label for="hazardCategory" class="form-label">Category *</label>
+              <input type="text" class="form-control" id="hazardCategory" required>
+            </div>
+            <div class="col-12">
+              <label for="hazardDescription" class="form-label">Description</label>
+              <textarea class="form-control" id="hazardDescription" rows="3"></textarea>
+            </div>
+            <div class="col-md-4">
+              <label for="defaultLikelihood" class="form-label">Default Likelihood (1-5)</label>
+              <select class="form-select" id="defaultLikelihood">
+                <option value="1">1 - Very Unlikely</option>
+                <option value="2">2 - Unlikely</option>
+                <option value="3" selected>3 - Possible</option>
+                <option value="4">4 - Likely</option>
+                <option value="5">5 - Very Likely</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="defaultSeverity" class="form-label">Default Severity (1-5)</label>
+              <select class="form-select" id="defaultSeverity">
+                <option value="1">1 - Negligible</option>
+                <option value="2">2 - Minor</option>
+                <option value="3" selected>3 - Moderate</option>
+                <option value="4">4 - Major</option>
+                <option value="5">5 - Catastrophic</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <div class="form-check mt-4">
+                <input class="form-check-input" type="checkbox" id="requiresParameter">
+                <label class="form-check-label" for="requiresParameter">
+                  Requires Parameter
+                </label>
+              </div>
+            </div>
+            <div class="col-md-6" id="parameterFields" style="display: none;">
+              <label for="parameterLabel" class="form-label">Parameter Label</label>
+              <input type="text" class="form-control" id="parameterLabel" placeholder="e.g., Working Height, Voltage Level">
+            </div>
+            <div class="col-md-6" id="parameterUnitField" style="display: none;">
+              <label for="parameterUnit" class="form-label">Parameter Unit</label>
+              <input type="text" class="form-control" id="parameterUnit" placeholder="e.g., feet, kV, psi">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveHazardBtn">Save Hazard</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script type="module" src="{{ url_for('static', filename='js/hazards.js') }}" defer></script>
+{% endblock %}

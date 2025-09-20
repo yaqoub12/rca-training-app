@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% block title %}Risk Assessment Matrix{% endblock %}
+{% block content %}
+  <div id="messageArea" class="mb-3"></div>
+  <section class="mb-4">
+    <div class="row g-3 align-items-end">
+      <div class="col-sm-4 col-md-3">
+        <label for="woNumber" class="form-label">Work Order Number</label>
+        <input type="text" id="woNumber" class="form-control" placeholder="e.g. WO-1001" autocomplete="off">
+      </div>
+      <div class="col-sm-8 col-md-5">
+        <label for="woTitle" class="form-label">Work Order Title (optional)</label>
+        <input type="text" id="woTitle" class="form-control" placeholder="Pump overhaul shutdown">
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button class="btn btn-primary" id="loadWorkOrder">Load Work Order</button>
+        <button class="btn btn-outline-secondary" id="importSample">Import Sample MS</button>
+      </div>
+    </div>
+    <div class="row g-3 align-items-end mt-2" style="display: none;">
+      <div class="col-sm-6 col-md-4">
+        <label for="msUpload" class="form-label">Upload Method Statement CSV</label>
+        <input class="form-control" type="file" id="msUpload" accept=".csv" disabled>
+      </div>
+      <div class="col-sm-6 col-md-3">
+        <button class="btn btn-outline-primary mt-sm-4" id="importUploaded" disabled>Import Uploaded CSV</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="mb-4">
+    <div class="risk-legend">
+      {% for cat in risk_categories %}
+        <div class="legend-item" style="background-color: {{ cat.color }}">
+          <strong>{{ cat.label }}</strong>
+          <small>{{ cat.guidance }}</small>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="mb-3">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <h2 class="h5 mb-0">Risk Assessment Table</h2>
+      <div class="d-flex gap-2">
+        <button class="btn btn-success btn-sm" id="addTask" disabled>Add Task</button>
+        <button class="btn btn-outline-success btn-sm" id="saveAll" disabled>Save All</button>
+      </div>
+    </div>
+    <div class="table-responsive risk-table-wrapper">
+      <table class="table table-bordered align-middle table-sm" id="taskTable">
+        <thead class="table-light">
+          <tr>
+            <th style="width: 20px; padding: 1px; min-width: 20px;"></th>
+            <th class="col-activity">Work Activity / Process</th>
+            <th class="col-hazards">Hazards Description</th>
+            <th class="col-personnel">Personnel at Risk</th>
+            <th class="col-controls">Current Controls / Mitigation Measures</th>
+            <th class="col-risk" style="width: 50px; min-width: 50px;" title="Risk Level (Likelihood × Severity)">Risk</th>
+            <th class="col-controls">Additional Controls / Actions</th>
+            <th>Date to be Completed</th>
+            <th class="col-risk" style="width: 50px; min-width: 50px;" title="Residual Risk Level after Additional Controls">Residual Risk</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody">
+          <tr class="placeholder-row">
+            <td colspan="9" class="text-center py-5 text-muted">Load a work order to begin the assessment.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Hazard Modal -->
+  <div class="modal fade" id="hazardModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Select Hazards</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2">Tick each hazard and provide any requested parameter (e.g. load weight) before applying.</p>
+          <div id="selectedHazards" class="mb-3"></div>
+          <input type="search" class="form-control" id="hazardSearch" placeholder="Search hazards...">
+          <div class="list-group mt-3" id="hazardOptions"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="hazardModalSave">Apply Hazards</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Control Modal -->
+  <div class="modal fade" id="controlModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="controlModalTitle">Select Controls</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <input type="search" class="form-control" id="controlSearch" placeholder="Search controls...">
+            <span class="badge bg-info text-dark" id="controlPhaseLabel"></span>
+          </div>
+          <div id="selectedControls" class="mb-3"></div>
+          <div class="list-group" id="controlOptions"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="controlModalSave">Apply Controls</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Personnel Selection Modal -->
+  <div class="modal fade" id="personnelModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Select Personnel at Risk</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="selectedPersonnel" class="mb-3"></div>
+          <div class="list-group" id="personnelOptions"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="personnelModalSave">Apply Personnel</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Risk Matrix Modal -->
+  <div class="modal fade" id="riskModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="riskModalTitle">Select Risk Level</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="small text-muted mb-2">Choose the combination of likelihood and severity using the matrix below.</p>
+          <div class="risk-matrix-grid" id="riskMatrixGrid"></div>
+          <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+            <div id="riskSelectedLabel" class="fw-semibold">Current selection: -</div>
+            <div>
+              <span class="badge bg-light text-dark border">Likelihood: <span id="riskSelectedLikelihood">-</span></span>
+              <span class="badge bg-light text-dark border ms-2">Severity: <span id="riskSelectedSeverity">-</span></span>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="riskModalSave">Apply Risk Level</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+{% endblock %}

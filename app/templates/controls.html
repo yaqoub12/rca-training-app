@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Controls Catalog - RCA Risk Assessment{% endblock %}
+
+{% block content %}
+<div class="container-fluid catalog-page">
+  <div class="row">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+          <h1 class="h3 mb-1">
+            <i class="bi bi-shield-shaded text-success me-2"></i>
+            Controls Catalog
+          </h1>
+          <p class="text-muted mb-0">Manage control measures database with inline editing</p>
+        </div>
+        <button class="btn btn-success" id="addControlBtn">
+          <i class="bi bi-plus-circle me-1"></i>Add New Control
+        </button>
+      </div>
+
+      <!-- Search and Filter -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="controlSearch" class="form-label">Search Controls</label>
+              <input type="text" class="form-control" id="controlSearch" placeholder="Search by name or description...">
+            </div>
+            <div class="col-md-3">
+              <label for="categoryFilter" class="form-label">Filter by Category</label>
+              <select class="form-select" id="categoryFilter">
+                <option value="">All Categories</option>
+                <option value="Elimination">Elimination</option>
+                <option value="Substitution">Substitution</option>
+                <option value="Engineering Controls">Engineering Controls</option>
+                <option value="Administrative Controls">Administrative Controls</option>
+                <option value="Personal Protective Equipment">Personal Protective Equipment</option>
+                <option value="Communication">Communication</option>
+                <option value="Electrical Isolation">Electrical Isolation</option>
+                <option value="Handling Equipment">Handling Equipment</option>
+                <option value="Procedural">Procedural</option>
+                <option value="Supervision">Supervision</option>
+                <option value="PPE">PPE</option>
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label for="effectivenessFilter" class="form-label">Filter by Effectiveness</label>
+              <select class="form-select" id="effectivenessFilter">
+                <option value="">All Effectiveness Levels</option>
+                <option value="1">1 - Low</option>
+                <option value="2">2 - Medium</option>
+                <option value="3">3 - High</option>
+                <option value="4">4 - Very High</option>
+                <option value="5">5 - Maximum</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Controls Table -->
+      <div class="card">
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle" id="controlsTable">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 30px;"></th>
+                  <th>Control Name</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th style="width: 100px;">Effectiveness</th>
+                  <th style="width: 140px;">Parameter</th>
+                  <th style="width: 120px;">Reference</th>
+                  <th style="width: 100px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="controlsTableBody">
+                <tr class="placeholder-row">
+                  <td colspan="8" class="text-center py-5 text-muted">
+                    <i class="bi bi-hourglass-split fs-1 d-block mb-2"></i>
+                    Loading controls...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Control Modal -->
+<div class="modal fade" id="controlModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="controlModalTitle">Add New Control</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="controlForm">
+          <input type="hidden" id="controlId">
+          <div class="row g-3">
+            <div class="col-md-8">
+              <label for="controlName" class="form-label">Control Name *</label>
+              <input type="text" class="form-control" id="controlName" required>
+            </div>
+            <div class="col-md-4">
+              <label for="controlCategory" class="form-label">Category *</label>
+              <select class="form-select" id="controlCategory" required>
+                <option value="">Select Category</option>
+                <option value="Elimination">Elimination</option>
+                <option value="Substitution">Substitution</option>
+                <option value="Engineering Controls">Engineering Controls</option>
+                <option value="Administrative Controls">Administrative Controls</option>
+                <option value="Personal Protective Equipment">Personal Protective Equipment</option>
+                <option value="Communication">Communication</option>
+                <option value="Electrical Isolation">Electrical Isolation</option>
+                <option value="Handling Equipment">Handling Equipment</option>
+                <option value="Procedural">Procedural</option>
+                <option value="Supervision">Supervision</option>
+                <option value="PPE">PPE</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <label for="controlDescription" class="form-label">Description</label>
+              <textarea class="form-control" id="controlDescription" rows="3"></textarea>
+            </div>
+            <div class="col-md-6">
+              <label for="effectiveness" class="form-label">Effectiveness (1-5)</label>
+              <select class="form-select" id="effectiveness">
+                <option value="1">1 - Low Effectiveness</option>
+                <option value="2" selected>2 - Medium Effectiveness</option>
+                <option value="3">3 - High Effectiveness</option>
+                <option value="4">4 - Very High Effectiveness</option>
+                <option value="5">5 - Maximum Effectiveness</option>
+              </select>
+            </div>
+            <div class="col-12">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="requiresParameter">
+                <label class="form-check-label" for="requiresParameter">
+                  Requires Parameter
+                </label>
+              </div>
+            </div>
+            <div class="col-md-6" id="parameterLabelGroup" style="display: none;">
+              <label for="parameterLabel" class="form-label">Parameter Label</label>
+              <input type="text" class="form-control" id="parameterLabel" placeholder="e.g., Procedure Number, Voltage Level">
+              <div class="form-text">Descriptive name for the parameter</div>
+            </div>
+            <div class="col-md-6" id="parameterUnitGroup" style="display: none;">
+              <label for="parameterUnit" class="form-label">Parameter Unit</label>
+              <input type="text" class="form-control" id="parameterUnit" placeholder="e.g., kV, psi, feet">
+              <div class="form-text">Unit of measurement (optional)</div>
+            </div>
+            <div class="col-md-6">
+              <label for="controlReference" class="form-label">Reference (Legacy)</label>
+              <input type="text" class="form-control" id="controlReference" placeholder="e.g., SOP-001, NFPA 70E">
+              <div class="form-text">Legacy reference field (for backward compatibility)</div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="saveControlBtn">Save Control</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block body_extra %}
+<script type="module" src="{{ url_for('static', filename='js/controls.js') }}" defer></script>
+{% endblock %}

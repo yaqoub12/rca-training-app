@@ -1,0 +1,25 @@
+﻿risk_categories:
+  - label: "GREEN - Tolerable"
+    color: "#2ecc71"
+    min_score: 1
+    max_score: 5
+    guidance: |
+      Risk considered broadly acceptable. Proceed as planned with competent personnel assigned to the task.
+  - label: "YELLOW - Moderate"
+    color: "#f1c40f"
+    min_score: 6
+    max_score: 10
+    guidance: |
+      May be acceptable. Review the task and reduce the risk to as low as reasonably practicable (ALARP).
+  - label: "ORANGE - Substantial"
+    color: "#e67e22"
+    min_score: 11
+    max_score: 15
+    guidance: |
+      Task shall be redesigned or additional controls implemented prior to commencement to reduce the risk.
+  - label: "RED - Intolerable"
+    color: "#e74c3c"
+    min_score: 16
+    max_score: 25
+    guidance: |
+      Task must not proceed. Redefine the method statement or implement multiple additional controls to reduce risk.

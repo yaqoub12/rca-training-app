@@ -1,0 +1,5 @@
+﻿Task Number,Work Activity,Personnel At Risk,Hazard Description,Existing Controls
+1,Isolate turbine feed pump,Maintenance crew; Operations staff,Live electrical conductors,PPE briefing; Lock-out/tag-out applied
+2,Remove pump casing,Maintenance crew,Manual handling - 35kg casing,Use lifting beam; Team lift procedure
+3,Clean seal surfaces,Maintenance crew,Chemical exposure - degreaser,PPE (chemical gloves); Local extraction ventilation
+4,Install new mechanical seal,Maintenance crew,Pinch points during alignment,Use alignment jacks; Keep hands clear; Supervisor oversight
