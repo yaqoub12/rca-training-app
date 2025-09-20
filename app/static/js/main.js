@@ -62,27 +62,64 @@ const likelihoodOptions = [1, 2, 3, 4, 5];
 
 async function loadInitialData() {
   try {
-    const [controlsResponse, hazardsResponse, riskCategoriesResponse, personnelResponse] = await Promise.all([
+    const [controlsResponse, hazardsResponse, riskCategoriesResponse, personnelResponse, workOrdersResponse] = await Promise.all([
       fetchJSON("/api/catalog/controls"),
       fetchJSON("/api/catalog/hazards"),
       fetchJSON("/api/risk-matrix"),
       fetchJSON("/api/catalog/personnel"),
+      fetchJSON("/api/work-orders"),
     ]);
 
     state.controls = controlsResponse.controls || [];
     state.hazards = hazardsResponse.hazards || [];
     state.riskCategories = riskCategoriesResponse.risk_categories || [];
     state.personnel = personnelResponse.personnel || [];
+    
+    // Populate work order dropdown
+    populateWorkOrderDropdown(workOrdersResponse.work_orders || []);
 
     console.log("Initial data loaded:", {
       controls: state.controls.length,
       hazards: state.hazards.length,
       riskCategories: state.riskCategories.length,
       personnel: state.personnel.length,
+      workOrders: workOrdersResponse.work_orders?.length || 0,
     });
   } catch (error) {
     console.error("Failed to load initial data:", error);
     flashMessage("Failed to load application data", "danger");
+  }
+}
+
+function populateWorkOrderDropdown(workOrders) {
+  const woNumberEl = document.getElementById("woNumber");
+  if (!woNumberEl) return;
+  
+  // Clear existing options except the first one
+  woNumberEl.innerHTML = '<option value="">Select Work Order...</option>';
+  
+  // Add work order options
+  workOrders.forEach(wo => {
+    const option = document.createElement("option");
+    option.value = wo.number;
+    option.textContent = `${wo.number} - ${wo.title}`;
+    option.dataset.title = wo.title;
+    option.dataset.description = wo.description;
+    woNumberEl.appendChild(option);
+  });
+  
+  // Add event listener for dropdown change
+  woNumberEl.addEventListener("change", handleWorkOrderSelection);
+}
+
+function handleWorkOrderSelection(event) {
+  const selectedOption = event.target.selectedOptions[0];
+  const woTitleEl = document.getElementById("woTitle");
+  
+  if (selectedOption && selectedOption.value && woTitleEl) {
+    woTitleEl.value = selectedOption.dataset.title || "";
+  } else if (woTitleEl) {
+    woTitleEl.value = "";
   }
 }
 
@@ -573,53 +610,94 @@ function renderRiskButton(task, phase) {
   const isResidual = phase === "residual";
   const likelihood = Number(isResidual ? task.residual_likelihood ?? 1 : task.likelihood ?? 1);
   const severity = Number(isResidual ? task.residual_severity ?? 1 : task.severity ?? 1);
-  const rawScore = isResidual ? task.residual_risk_score : task.risk_score;
-  const score = Number(rawScore ?? likelihood * severity);
-  const category = isResidual ? task.residual_risk_category : task.risk_category;
+  const score = likelihood * severity;
   const hasHazards = task.hazards && task.hazards.length > 0;
   
-  let label, fullDescriptor, color, textColor;
+  let label, fullDescriptor, textColor;
   
   if (!hasHazards) {
     // No hazards selected - show evaluate icon
     label = '⚖️';
     fullDescriptor = 'Select hazards first to evaluate risk';
-    color = '#f8f9fa';
     textColor = '#666';
-  } else if (category) {
-    // Risk evaluated
-    label = category.label;
-    fullDescriptor = `${category.label} - L${likelihood} × S${severity} = ${score}`;
-    color = category.color;
-    textColor = '#000';
   } else {
-    // Hazards selected but risk not evaluated
-    label = '⚖️';
-    fullDescriptor = 'Click to evaluate risk';
-    color = '#fff3cd';
-    textColor = '#856404';
+    // Use the same risk classification as the interactive matrix
+    const riskClass = getTableRiskClass(score);
+    label = `<div style="line-height: 1.1;">
+      <div style="font-size: 1.0rem; font-weight: bold;">${riskClass.prefix} ${score}</div>
+      <div style="font-size: 1.0rem; font-weight: bold; opacity: 1;">${riskClass.colorName}</div>
+    </div>`;
+    fullDescriptor = `${riskClass.label} - L${likelihood} × S${severity} = ${score}`;
+    textColor = riskClass.textColor;
   }
   
-  return `<button type="button" class="btn btn-sm js-edit-risk w-100" data-phase="${phase}" style="background: transparent; border: none; color: ${textColor}; font-weight: bold; font-size: ${!hasHazards || !category ? '1.2rem' : '0.875rem'};" title="${escapeHTML(fullDescriptor)}">
-    ${escapeHTML(label)}
+  return `<button type="button" class="btn btn-sm js-edit-risk w-100" data-phase="${phase}" style="background: transparent; border: none; color: ${textColor}; font-weight: bold; font-size: ${!hasHazards ? '1.2rem' : '0.875rem'}; padding: 4px;" title="${escapeHTML(fullDescriptor)}">
+    ${label}
   </button>`;
 }
 
 function renderRiskCell(task, phase) {
   const isResidual = phase === "residual";
-  const category = isResidual ? task.residual_risk_category : task.risk_category;
+  const likelihood = Number(isResidual ? task.residual_likelihood ?? 1 : task.likelihood ?? 1);
+  const severity = Number(isResidual ? task.residual_severity ?? 1 : task.severity ?? 1);
+  const score = likelihood * severity;
   const hasHazards = task.hazards && task.hazards.length > 0;
   
   let color;
   if (!hasHazards) {
     color = '#f8f9fa';
-  } else if (category) {
-    color = category.color;
   } else {
-    color = '#fff3cd';
+    // Use the same risk classification as the interactive matrix
+    const riskClass = getTableRiskClass(score);
+    color = riskClass.backgroundColor;
   }
   
   return `<td style="background-color: ${color}; text-align: center; padding: 8px;">${renderRiskButton(task, phase)}</td>`;
+}
+
+// Helper function for table risk classification - matches the interactive matrix
+function getTableRiskClass(score) {
+  // Use the same logic as getRiskClass function in renderRiskMatrix
+  if (score === 1 || score === 2 || score === 3) {
+    return { 
+      prefix: 'L', 
+      label: 'Low', 
+      colorName: 'Green',
+      backgroundColor: '#28a745', 
+      textColor: 'white' 
+    };
+  } else if (score === 4 || score === 5 || score === 6) {
+    return { 
+      prefix: 'M', 
+      label: 'Medium', 
+      colorName: 'Yellow',
+      backgroundColor: '#ffc107', 
+      textColor: 'black' 
+    };
+  } else if (score === 8 || score === 9 || score === 10 || score === 12) {
+    return { 
+      prefix: 'H', 
+      label: 'High', 
+      colorName: 'Orange',
+      backgroundColor: '#fd7e14', 
+      textColor: 'white' 
+    };
+  } else if (score === 15 || score === 16 || score === 20 || score === 25) {
+    return { 
+      prefix: 'EX', 
+      label: 'Extreme', 
+      colorName: 'Red',
+      backgroundColor: '#dc3545', 
+      textColor: 'white' 
+    };
+  }
+  return { 
+    prefix: '', 
+    label: 'Unknown', 
+    colorName: 'Gray',
+    backgroundColor: '#e0e0e0', 
+    textColor: 'black' 
+  };
 }
 
 function renderHazardBadges(hazards = []) {
@@ -670,9 +748,10 @@ function renderPersonnelBadges(personnelString = '') {
     return '<span class="text-muted small">No personnel selected</span>';
   }
   
+  // Display each personnel type on a separate line for space optimization
   return personnelList
-    .map(person => `<span class="badge bg-info-subtle text-dark border">${escapeHTML(person)}</span>`)
-    .join(' ');
+    .map(person => `<div class="mb-1"><span class="badge bg-info-subtle text-dark border" style="font-size: 0.75rem;">${escapeHTML(person)}</span></div>`)
+    .join('');
 }
 
 function openRiskModal(taskId, phase = "initial") {
@@ -697,31 +776,107 @@ function renderRiskMatrix() {
   if (!riskMatrixGrid || !state.riskSelection) {
     return;
   }
-  const likelihoodValues = [1, 2, 3, 4, 5];
+  
+  // Helper function to get risk classification
+  function getRiskClass(score) {
+    // Based on the exact matrix provided
+    if (score === 1 || score === 2 || score === 3) return { prefix: 'L', class: 'risk-cell-green' };
+    if (score === 4 || score === 5 || score === 6) return { prefix: 'M', class: 'risk-cell-yellow' };
+    if (score === 8 || score === 9 || score === 10 || score === 12) return { prefix: 'H', class: 'risk-cell-orange' };
+    if (score === 15 || score === 16 || score === 20 || score === 25) return { prefix: 'EX', class: 'risk-cell-red' };
+    return { prefix: '', class: 'risk-cell-gray' };
+  }
+  
+  const likelihoodValues = [5, 4, 3, 2, 1]; // Reverse order to match template
+  const likelihooddescription = ["Almost certain", "Likely", "Possible", "Unlikely", "Rare"];
   const severityValues = [1, 2, 3, 4, 5];
-  let html = '<table class="risk-matrix-table">';
-  html += '<thead><tr><th></th>' + severityValues.map((value) => `<th>Severity ${value}</th>`).join('') + '</tr></thead>';
+  
+  let html = '<table class="risk-matrix-table template-style">';
   html += '<tbody>';
-  likelihoodValues.forEach((likelihood) => {
-    html += `<tr><th>Likelihood ${likelihood}</th>`;
+  likelihoodValues.forEach((likelihood, index) => {
+    html += '<tr>';
+    
+    // Add merged likelihood header only for the first row
+    if (index === 0) {
+      html += `<th rowspan="5" class="likelihood-header text-center align-middle">
+        <div class="likelihood-text">Likelihood<br>of event<br>happening</div>
+      </th>`;
+    }
+    
+    // Add likelihood number
+    html += `<th class="likelihood-number text-center align-middle fw-bold">${likelihood}</th>`;
+    
+    // Add empty column before the risk cells
+    html += `<td class="empty-cell">${likelihooddescription[index]}</td>`;
+    
     severityValues.forEach((severity) => {
       const score = likelihood * severity;
-      const category = getRiskCategoryByScore(score);
+      const riskClass = getRiskClass(score);
       const isSelected = state.riskSelection &&
         state.riskSelection.likelihood === likelihood &&
         state.riskSelection.severity === severity;
-      const classes = `risk-matrix-cell${isSelected ? ' selected' : ''}`;
-      const color = category?.color || '#e0e0e0';
-      const label = category ? category.label : 'N/A';
-      html += `<td class="${classes}" data-likelihood="${likelihood}" data-severity="${severity}" data-score="${score}" style="background-color: ${color};">` +
-        `<div class="score">${score}</div>` +
-        `<div class="descriptor">${escapeHTML(label)}</div>` +
+      
+      const classes = `risk-matrix-cell ${riskClass.class}${isSelected ? ' selected' : ''}`;
+      const riskLabel = `${riskClass.prefix} ${score}`;
+      
+      html += `<td class="${classes}" data-likelihood="${likelihood}" data-severity="${severity}" data-score="${score}">` +
+        `<div class="risk-label">${riskLabel}</div>` +
         '</td>';
     });
     html += '</tr>';
   });
+  
+  // Add outcome table directly below matrix
+  html += `
+    <tr>
+      <td rowspan="4" class="outcome-header text-center align-middle">
+        <div class="outcome-text">Likely<br>outcome of<br>event</div>
+      </td>
+      <td class="outcome-category fw-bold" colspan="2">Safety</td>
+      <td class="outcome-desc">Near Miss</td>
+      <td class="outcome-desc">Minor<br>Injury</td>
+      <td class="outcome-desc">LTI</td>
+      <td class="outcome-desc">Major<br>Injury</td>
+      <td class="outcome-desc">Fatality</td>
+    </tr>
+    <tr>
+      <td class="outcome-category fw-bold" colspan="2">People</td>
+      <td class="outcome-desc">Insignificant<br>Health<br>Effect</td>
+      <td class="outcome-desc">Minor<br>Health<br>Effect</td>
+      <td class="outcome-desc">Serious<br>Health<br>Effect</td>
+      <td class="outcome-desc">Major<br>Health<br>Effect</td>
+      <td class="outcome-desc">Extreme<br>Health<br>Effect</td>
+    </tr>
+    <tr>
+      <td class="outcome-category fw-bold" colspan="2">Environment</td>
+      <td class="outcome-desc">Insignificant<br>impact</td>
+      <td class="outcome-desc">Minor<br>impact</td>
+      <td class="outcome-desc">Serious<br>impact</td>
+      <td class="outcome-desc">Major<br>impact</td>
+      <td class="outcome-desc">Extreme<br>impact</td>
+    </tr>
+    <tr>
+      <td class="outcome-category fw-bold" colspan="2">Cost / Legal obligation<br>(in OMR)</td>
+      <td class="outcome-desc">&lt; 2K OMR</td>
+      <td class="outcome-desc">&lt; 20K</td>
+      <td class="outcome-desc">&lt; 200K</td>
+      <td class="outcome-desc">&lt; 400K</td>
+      <td class="outcome-desc">&lt; 800K</td>
+    </tr>
+    <tr>
+      <td class="severity-header text-center fw-bold" colspan="3">Severity</td>
+      <td class="severity-number text-center fw-bold">1</td>
+      <td class="severity-number text-center fw-bold">2</td>
+      <td class="severity-number text-center fw-bold">3</td>
+      <td class="severity-number text-center fw-bold">4</td>
+      <td class="severity-number text-center fw-bold">5</td>
+    </tr>
+  `;
+  
   html += '</tbody></table>';
   riskMatrixGrid.innerHTML = html;
+  
+  // Add click handlers
   riskMatrixGrid.querySelectorAll('.risk-matrix-cell').forEach((cell) => {
     cell.addEventListener('click', handleRiskCellSelect);
   });
@@ -737,9 +892,7 @@ function handleRiskCellSelect(event) {
 }
 
 function updateRiskModalSelection() {
-  if (!state.riskSelection) {
-    return;
-  }
+  if (!state.riskSelection) return;
   const { likelihood, severity } = state.riskSelection;
   const score = likelihood * severity;
   if (riskSelectedLikelihoodEl) {
@@ -750,7 +903,27 @@ function updateRiskModalSelection() {
   }
   const category = getRiskCategoryByScore(score);
   if (riskSelectedLabelEl) {
-    riskSelectedLabelEl.textContent = category ? `${category.label} (${score})` : `Score ${score}`;
+    // Update badge with proper risk class - matching getRiskClass logic
+    let badgeClass = 'bg-secondary';
+    let riskLabel = 'Unknown';
+    
+    // Use the same logic as getRiskClass function
+    if (score === 1 || score === 2 || score === 3) {
+      badgeClass = 'bg-success';
+      riskLabel = `L ${score}`;
+    } else if (score === 4 || score === 5 || score === 6) {
+      badgeClass = 'bg-warning text-dark';
+      riskLabel = `M ${score}`;
+    } else if (score === 8 || score === 9 || score === 10 || score === 12) {
+      badgeClass = 'bg-orange text-white';
+      riskLabel = `H ${score}`;
+    } else if (score === 15 || score === 16 || score === 20 || score === 25) {
+      badgeClass = 'bg-danger';
+      riskLabel = `EX ${score}`;
+    }
+    
+    riskSelectedLabelEl.className = `badge ${badgeClass} ms-2`;
+    riskSelectedLabelEl.textContent = riskLabel;
   }
 }
 
@@ -841,6 +1014,21 @@ function renderSelectedHazards() {
 function renderHazardOptions(filter = "") {
   if (!hazardOptionsEl) return;
   const term = filter.toLowerCase();
+  
+  // Preserve current parameter values from input fields before re-rendering
+  const currentParameterValues = new Map();
+  hazardOptionsEl.querySelectorAll('.js-hazard-parameter').forEach(input => {
+    const hazardId = parseInt(input.dataset.hazardId);
+    const value = input.value.trim();
+    if (value) {
+      currentParameterValues.set(hazardId, value);
+      // Update state with current value
+      const entry = state.hazardSelection.get(hazardId) || { id: hazardId, parameter_value: value };
+      entry.parameter_value = value;
+      state.hazardSelection.set(hazardId, entry);
+    }
+  });
+  
   hazardOptionsEl.innerHTML = "";
   
   // Filter hazards based on search term
@@ -890,7 +1078,8 @@ function renderHazardOptions(filter = "") {
     hazards.forEach((hazard) => {
       const selection = state.hazardSelection.get(hazard.id);
       const isChecked = Boolean(selection);
-      const parameterValue = selection?.parameter_value ?? "";
+      // Use preserved value if available, otherwise use stored value
+      const parameterValue = currentParameterValues.get(hazard.id) || selection?.parameter_value || "";
       const item = document.createElement("label");
       item.className = "list-group-item border-0 d-flex flex-column gap-1";
       const description = hazard.description ? ` - ${escapeHTML(hazard.description)}` : "";

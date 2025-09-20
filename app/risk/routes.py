@@ -44,6 +44,22 @@ def api_risk_matrix():
     return jsonify({"risk_categories": [risk_category_to_dict(cat) for cat in categories]})
 
 
+@risk_bp.get("/api/work-orders")
+def api_list_work_orders():
+    """Get all work orders for dropdown selection."""
+    work_orders = WorkOrder.query.order_by(WorkOrder.number).all()
+    return jsonify({
+        "work_orders": [
+            {
+                "number": wo.number,
+                "title": wo.title,
+                "description": wo.description
+            }
+            for wo in work_orders
+        ]
+    })
+
+
 @risk_bp.get("/api/catalog/hazards")
 def api_list_hazards():
     hazards = Hazard.query.order_by(Hazard.category, Hazard.name).all()

@@ -6,7 +6,9 @@
     <div class="row g-3 align-items-end">
       <div class="col-sm-4 col-md-3">
         <label for="woNumber" class="form-label">Work Order Number</label>
-        <input type="text" id="woNumber" class="form-control" placeholder="e.g. WO-1001" autocomplete="off">
+        <select id="woNumber" class="form-select">
+          <option value="">Select Work Order...</option>
+        </select>
       </div>
       <div class="col-sm-8 col-md-5">
         <label for="woTitle" class="form-label">Work Order Title (optional)</label>
@@ -139,22 +141,34 @@
 
   <!-- Risk Matrix Modal -->
   <div class="modal fade" id="riskModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="riskModalTitle">Select Risk Level</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
-          <p class="small text-muted mb-2">Choose the combination of likelihood and severity using the matrix below.</p>
-          <div class="risk-matrix-grid" id="riskMatrixGrid"></div>
-          <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-            <div id="riskSelectedLabel" class="fw-semibold">Current selection: -</div>
-            <div>
-              <span class="badge bg-light text-dark border">Likelihood: <span id="riskSelectedLikelihood">-</span></span>
-              <span class="badge bg-light text-dark border ms-2">Severity: <span id="riskSelectedSeverity">-</span></span>
+          <p class="small text-muted mb-3">Choose the combination of likelihood and severity using the matrix below.</p>
+          
+          <!-- Enhanced Risk Matrix -->
+          <div id="riskMatrixGrid" class="risk-matrix-container mb-4"></div>
+          
+          <!-- Selected Risk Info -->
+          <div class="selected-risk-info mb-4 p-3 bg-light rounded">
+            <div class="row">
+              <div class="col-md-6">
+                <strong>Selected Risk:</strong>
+                <span id="riskSelectedLabel" class="badge bg-secondary ms-2">None</span>
+              </div>
+              <div class="col-md-6">
+                <strong>Likelihood:</strong> <span id="riskSelectedLikelihood" class="badge bg-info ms-1">-</span>
+                <strong>Severity:</strong> <span id="riskSelectedSeverity" class="badge bg-warning ms-1">-</span>
+              </div>
             </div>
           </div>
+          
+          <!-- Risk Guidance Table - Exact Template Match -->
+          
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

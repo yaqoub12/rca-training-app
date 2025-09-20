@@ -47,21 +47,113 @@ def load_risk_categories(cache: bool = True) -> list[RiskMatrixCategory]:
 
 
 def bootstrap_seed_data() -> None:
-    """Populate the database with baseline hazards, controls, and a sample work order."""
+    """Populate the database with baseline hazards, controls, and sample work orders."""
     categories = load_risk_categories()
 
     _seed_hazards()
     _seed_controls()
-
-    if not WorkOrder.query.filter_by(number="WO-1001").first():
-        work_order = WorkOrder(number="WO-1001", title="Pump Overhaul", description="Sample overhaul sequence")
-        db.session.add(work_order)
-        db.session.flush()
-
-        csv_path = Path(current_app.root_path).parent / "data" / "method_statements" / "wo1001_pump_overhaul.csv"
-        if csv_path.exists():
-            import_method_statement(work_order, csv_path, categories)
+    _seed_power_plant_work_orders(categories)
+    
     db.session.commit()
+
+
+def _seed_power_plant_work_orders(categories: Sequence[RiskMatrixCategory]) -> None:
+    """Create power plant work orders with realistic tasks."""
+    
+    work_orders = [
+        ("WO-2001", "Steam Turbine Maintenance", "Annual turbine maintenance"),
+        ("WO-2002", "Generator Electrical Work", "Generator maintenance and testing"),
+        ("WO-2003", "Boiler Tube Inspection", "Boiler pressure vessel inspection"),
+        ("WO-2004", "Cooling Tower Service", "Cooling tower cleaning and repair"),
+        ("WO-2005", "Transformer Maintenance", "Electrical transformer service"),
+        ("WO-2006", "Coal Handling System", "Conveyor and coal system work"),
+        ("WO-2007", "Ash Handling Work", "Ash system maintenance"),
+        ("WO-2008", "Water Treatment", "Water treatment system service"),
+        ("WO-2009", "Switchyard Work", "High voltage electrical work"),
+        ("WO-2010", "Turbine Generator Alignment", "Precision alignment work"),
+        ("WO-2011", "Condenser Cleaning", "Heat exchanger maintenance"),
+        ("WO-2012", "Control System Upgrade", "DCS system modifications"),
+        ("WO-2013", "Fuel Oil System", "Fuel handling system work"),
+        ("WO-2014", "Emergency Diesel Test", "Backup generator testing"),
+        ("WO-2015", "Stack Inspection", "Chimney and emissions work")
+    ]
+    
+    for wo_num, title, desc in work_orders:
+        if not WorkOrder.query.filter_by(number=wo_num).first():
+            work_order = WorkOrder(number=wo_num, title=title, description=desc)
+            db.session.add(work_order)
+            db.session.flush()
+            _create_tasks_for_work_order(work_order, categories)
+
+
+def _create_tasks_for_work_order(work_order: WorkOrder, categories: Sequence[RiskMatrixCategory]) -> None:
+    """Create realistic tasks based on work order type."""
+    
+    task_templates = {
+        "WO-2001": [  # Steam Turbine
+            ("Turbine shutdown and isolation", "High pressure steam release", "Operations team"),
+            ("Remove turbine casing", "Heavy lifting operations", "Maintenance crew"),
+            ("Blade inspection", "Sharp edges and confined space", "Technicians"),
+            ("Rotor balancing", "Rotating machinery", "Specialists"),
+            ("Reassembly and testing", "High pressure testing", "All teams")
+        ],
+        "WO-2002": [  # Generator
+            ("Generator electrical isolation", "High voltage electrical shock", "Electrical team"),
+            ("Winding resistance testing", "Electrical testing equipment", "Electricians"),
+            ("Insulation testing", "High voltage testing", "Test technicians"),
+            ("Brush replacement", "Carbon dust exposure", "Maintenance crew"),
+            ("Vibration analysis", "Noise exposure", "Analysts")
+        ],
+        "WO-2003": [  # Boiler
+            ("Boiler shutdown and cooldown", "Extreme heat exposure", "Operations"),
+            ("Internal inspection access", "Confined space entry", "Inspectors"),
+            ("Ultrasonic testing", "Chemical exposure", "NDT technicians"),
+            ("Tube cleaning", "Chemical cleaning agents", "Cleaning crew"),
+            ("Pressure testing", "High pressure water", "Test team")
+        ],
+        "WO-2004": [  # Cooling Tower
+            ("Working at height on tower", "Fall from height", "Maintenance crew"),
+            ("Fill material replacement", "Manual handling", "Workers"),
+            ("Legionella sampling", "Biological hazard", "Environmental team"),
+            ("Fan motor maintenance", "Rotating machinery", "Electricians"),
+            ("Chemical treatment", "Chemical exposure", "Chemical technicians")
+        ],
+        "WO-2005": [  # Transformer
+            ("Transformer de-energization", "High voltage electrical", "Electrical team"),
+            ("Oil sampling", "Chemical exposure", "Lab technicians"),
+            ("Bushing inspection", "Working at height", "Inspectors"),
+            ("Cooling system maintenance", "Hot surfaces", "Maintenance"),
+            ("Oil filtration", "Hot oil handling", "Specialists")
+        ]
+    }
+    
+    # Default tasks for work orders not in template
+    default_tasks = [
+        ("Equipment isolation", "Electrical hazards", "Operations team"),
+        ("Component inspection", "Physical hazards", "Maintenance crew"),
+        ("Repair/replacement work", "Manual handling", "Technicians"),
+        ("Testing and commissioning", "Equipment hazards", "Test team"),
+        ("Documentation and cleanup", "General hazards", "All personnel")
+    ]
+    
+    tasks = task_templates.get(work_order.number, default_tasks)
+    
+    for idx, (activity, hazard_desc, personnel) in enumerate(tasks, 1):
+        task = Task(
+            work_order=work_order,
+            sequence=idx,
+            activity=activity,
+            hazard_description=hazard_desc,
+            personnel_at_risk=personnel,
+            existing_controls_summary="Standard safety procedures",
+            likelihood=3,  # Default moderate likelihood
+            severity=3     # Default moderate severity
+        )
+        db.session.add(task)
+        task.update_risk(categories)
+        task.residual_likelihood = 2
+        task.residual_severity = 2
+        task.update_risk(categories, residual=True)
 
 
 def import_method_statement(
